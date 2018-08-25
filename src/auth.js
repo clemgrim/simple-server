@@ -52,7 +52,7 @@ const getUser = (id) => {
 
 const createToken = (user, cb) => {
   const createdAt = Date.now() / 1000;
-  const expires = createdAt + 60 * 60 * 24;
+  const expires = createdAt + 60 * 60; // 1 hour
   const payload = { user };
 
   jwt.sign(payload, secret, (err, token) => {
