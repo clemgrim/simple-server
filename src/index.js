@@ -4,25 +4,37 @@ const compression = require('compression');
 const bodyParser = require('body-parser');
 const HttpStatus = require('http-status-codes');
 const cors = require('cors');
+const cookieParser = require('cookie-parser');
 const express = require('express');
 const app = express();
 
+const isProd = process.env.NODE_ENV === 'production';
+
+app.use(cookieParser());
 app.use(bodyParser.json()) 
 app.use(bodyParser.urlencoded({ extended: true }));
 app.use('/public', express.static(`${__dirname}/../public`));
 app.use(compression());
-app.use(cors());
+app.use(cors({ origin: 'http://localhost:8080', credentials: true }));
 
 app.get('/status', (req, res) => res.json({ success: true }));
 
 app.post('/auth/login', (req, res, next) => {
   const { username, password } = req.body;
+  const { useCookie } = req.query;
   const user = auth.loginUser(username, password);
 
   if (user) {
     auth.createToken(user, (err, result) => {
       if (err) {
         return next(new ApiError('Unable to create token', HttpStatus.INTERNAL_SERVER_ERROR, 'auth_login_error'));
+      }
+
+      if (useCookie) {
+        res.cookie(auth.COOKIE_NAME, result.access_token, {
+          httpOnly: true,
+          secure: isProd,
+        });
       }
       
       res.json(result);
@@ -49,6 +61,12 @@ app.post('/auth/refresh-token', (req, res, next) => {
     });
   });
 });
+
+app.post('/auth/logout', (req, res) => {
+  res.clearCookie(auth.COOKIE_NAME);
+
+  res.json({ success: true });
+})
 
 app.get('/me', auth.checkAuth, (req, res) => {
   const user = auth.getUser(req.user);
